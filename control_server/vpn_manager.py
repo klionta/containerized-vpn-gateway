@@ -90,12 +90,12 @@ def add_user(vpn_gw_public_key,vpn_gw_endpoint,username, allowed_ips) :
         "endpoint": vpn_gw_endpoint
     }
 
+    print(f"✅ User '{username}' added to database.")
     return client_config
 
 
-def delete_user_from_db(username) :
+def delete_user_from_db(username,db_path) :
 
-    db_path="../database/users.db"
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("SELECT public_key FROM users WHERE username = ?", (username,))
@@ -155,12 +155,36 @@ def update_vpn_gateway_config(WG_CONFIG_PATH ,username, client_public_key, allow
         f.write(f"PublicKey = {client_public_key}\n")
         f.write(f"AllowedIPs = {allowed_ips}\n")
 
+    print(f"✅ User '{username}' added to VPN config.")
     return
+
+def delete_user_from_vpn_conf(user_config,wg_config_path):
+    f= open(wg_config_path,"r")
+    lines=f.readlines()
+    lines_to_remove=[]
+    
+    i=0
+    for line in lines:
+        i+=1
+        line=line.strip()
+        if user_config["public_key"] in line:
+            lines_to_remove=[i-3,i-2,i-1,i]
+
+    f.close()
+
+    with open(wg_config_path,"w") as fw:
+        for i in range(len(lines)):
+            if i not in lines_to_remove:
+                fw.write(lines[i])
+
+    username=user_config["username"]
+    print(f"✅ User '{username}' removed from VPN config.")
 
 
 if __name__ == "__main__":
 
     WG_CONFIG_PATH = "../vpn_gateway/wg0.conf"
+    DB_PATH="../database/users.db"
     vpn_gw_endpoint = "vpn.example.com:51820"
     vpn_gw_public_key,vpn_gw_private_key = generate_key_pair()
 
@@ -170,4 +194,5 @@ if __name__ == "__main__":
     user_config = add_user(vpn_gw_public_key,vpn_gw_endpoint,"alice", "10.8.0.2/32") 
     update_vpn_gateway_config(WG_CONFIG_PATH ,user_config["username"], user_config["public_key"], user_config["allowed_ips"])
 
-    delete_user_from_db("alice")
+    delete_user_from_db("alice",DB_PATH)
+    delete_user_from_vpn_conf(user_config,WG_CONFIG_PATH)
