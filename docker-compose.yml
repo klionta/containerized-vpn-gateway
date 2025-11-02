@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  # 🛡️ 1️⃣ The VPN Gateway container
+  vpn_gateway:
+    build: ./vpn_gateway
+    container_name: vpn_gateway
+    cap_add:
+      - NET_ADMIN             # Required for WireGuard to manage network interfaces
+    network_mode: host        # Shares host network (needed for VPN traffic)
+    volumes:
+      - ./vpn_gateway:/etc/wireguard   # Mount wg0.conf and keys into container
+    command: ["wg-quick", "up", "wg0"] # Bring up WireGuard interface on start
+    restart: unless-stopped            # Auto-restart if it crashes
+
+  # ⚙️ 2️⃣ The Control Server (FastAPI) container
+  control_server:
+    build: ./control_server
+    container_name: control_server
+    ports:
+      - "8000:8000"             # Expose FastAPI web interface
+    volumes:
+      - ./vpn_gateway:/vpn_gateway    # So it can edit wg0.conf directly
+      - ./database:/database          # So it can read/write users.db
+    environment:
+      - ENV=production
+    depends_on:
+      - vpn_gateway             # Wait for vpn_gateway to start first
+    restart: unless-stopped
